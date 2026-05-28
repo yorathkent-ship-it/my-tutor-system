@@ -929,7 +929,7 @@ function doPost(e) {
             } else {
                 // 標記點名 -> 自動扣除 1 堂
                 st.attendance[today] = 'present';
-                st.balance -= 1;
+                st.balance -= 0.25;
                 showToast(`已完成 ${st.name} 的點名，餘額扣除 1 堂 (剩餘 ${st.balance} 堂)`);
 
                 // 如果餘額不足警示
@@ -999,7 +999,7 @@ function doPost(e) {
                     speakText(`${st.name} 已經簽到過了`);
                 } else {
                     st.attendance[today] = "present";
-                    st.balance -= 1; // 自動扣減
+                    st.balance -= 0.25; // 自動扣減
                     saveAndSync();
                     updateScanUI(st, "簽到成功且扣除1堂", "success");
 

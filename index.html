@@ -3,57 +3,907 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>智學通 - 學生自主查詢</title>
+    <title>智學通 - 智慧系統</title>
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- QR Code Generator -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <!-- HTML5 QR Code Scanner -->
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
+        body {
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+    </style>
 </head>
-<body class="bg-slate-50 text-slate-800 min-h-screen p-4">
-    <div class="max-w-md mx-auto space-y-6">
-        <header class="text-center py-6">
-            <h1 class="text-2xl font-bold text-indigo-900">學生查詢系統</h1>
-            <p class="text-xs text-slate-500">輸入學號即時查看課堂餘額</p>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col justify-between">
+
+    <!-- ==================== 學生/家長查詢端 (預設公開顯示) ==================== -->
+    <div id="studentPortal" class="flex-grow flex flex-col justify-between">
+        <!-- 頂部導航 -->
+        <header class="bg-indigo-950 text-white shadow-md py-4 px-6 border-b border-indigo-900 cursor-pointer" onclick="checkAdminClick()">
+            <div class="max-w-md mx-auto flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="bg-indigo-600 p-2 rounded-xl text-white">
+                        <i data-lucide="graduation-cap" class="w-6 h-6"></i>
+                    </div>
+                    <div>
+                        <h1 id="mainTitle" class="text-lg font-bold tracking-tight">學生查詢系統</h1>
+                        <p class="text-[10px] text-indigo-200">即時課堂餘額、出席進度自主查核</p>
+                    </div>
+                </div>
+                <div class="text-[10px] text-indigo-400/50">🔒 學生安全模式</div>
+            </div>
         </header>
 
-        <div class="bg-indigo-900 p-6 rounded-3xl shadow-xl text-white">
-            <div class="flex gap-2">
-                <input type="text" id="searchInput" placeholder="輸入學號 (如: STU001)" class="flex-grow px-4 py-3 bg-white/10 border border-white/20 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-400">
-                <button onclick="query()" class="bg-indigo-500 px-6 py-3 rounded-2xl font-bold">查詢</button>
+        <!-- 查詢主要內容 -->
+        <main class="flex-grow max-w-md w-full mx-auto p-4 md:p-6 space-y-6">
+            <div class="bg-gradient-to-br from-indigo-900 to-slate-900 text-white rounded-3xl p-6 shadow-xl relative overflow-hidden">
+                <div class="space-y-4 relative z-10">
+                    <span class="bg-indigo-500/30 text-indigo-300 border border-indigo-500/20 px-3 py-1 rounded-full text-xs font-bold inline-block">
+                        自助查詢
+                    </span>
+                    <h2 class="text-xl font-bold">查詢你的課堂餘額與點名記錄</h2>
+                    <p class="text-xs text-indigo-200">
+                        輸入你的「學號 ID」或「註冊的手機號碼」進行安全查核。
+                    </p>
+                    
+                    <!-- 搜尋輸入框 -->
+                    <div class="flex gap-2 pt-2">
+                        <input type="text" id="searchInput" placeholder="請輸入學號 (如: STU001) 或手機" class="flex-grow px-4 py-3 bg-white/10 border border-white/20 rounded-2xl text-white outline-none focus:ring-2 focus:ring-indigo-500 text-sm placeholder:text-slate-400">
+                        <button onclick="queryStudentData()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-6 py-3 rounded-2xl text-sm transition shadow-md">
+                            立即查詢
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 查詢結果卡片 -->
+            <div id="resultCard" class="bg-white rounded-3xl p-6 border border-slate-200/60 shadow-sm space-y-6 hidden">
+                <div class="flex justify-between items-center bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                    <div>
+                        <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">學生姓名</p>
+                        <h3 class="text-xl font-black text-slate-800 mt-1" id="studentName">--</h3>
+                        <p class="text-[10px] text-slate-400 font-mono">學號 ID：<span id="studentId">--</span></p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">剩餘堂數 (Balance)</p>
+                        <div class="flex items-baseline justify-end gap-1 mt-1">
+                            <span class="text-3xl font-black text-indigo-600 font-mono" id="studentBalance">0</span>
+                            <span class="text-xs text-slate-400">堂</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 四堂一期進度條 -->
+                <div class="space-y-2">
+                    <div class="flex justify-between text-xs font-semibold text-slate-500">
+                        <span>本期學期進度 (4 堂課 RM 150)</span>
+                        <span id="progressText">0 / 4 堂</span>
+                    </div>
+                    <div class="w-full bg-slate-100 rounded-full h-3 overflow-hidden p-0.5 border">
+                        <div id="progressBar" class="bg-indigo-600 h-2 rounded-full transition-all duration-500" style="width: 0%"></div>
+                    </div>
+                    <p class="text-[10px] text-slate-400" id="suggestText">--</p>
+                </div>
+
+                <!-- 出席歷史 -->
+                <div class="space-y-3">
+                    <h4 class="font-extrabold text-slate-800 text-sm flex items-center gap-2">
+                        <i data-lucide="calendar" class="text-indigo-600 w-4 h-4"></i>
+                        簽到歷史記錄
+                    </h4>
+                    <div class="border rounded-2xl overflow-hidden divide-y divide-slate-100 text-xs" id="attendanceHistoryList"></div>
+                </div>
+            </div>
+        </main>
+
+        <footer class="bg-slate-100 border-t py-4 text-center text-xs text-slate-400">
+            <p>© 智學通智慧校園系統 · 數據即時加密備份</p>
+        </footer>
+    </div>
+
+
+    <!-- ==================== 老師管理端 (雙重驗證解鎖後顯示) ==================== -->
+    <div id="adminPortal" class="hidden flex-grow flex flex-col justify-between">
+        <!-- 管理端頂部導航 -->
+        <header class="bg-indigo-950 text-white shadow-lg py-4 px-6 sticky top-0 z-30 border-b border-indigo-900">
+            <div class="max-w-4xl mx-auto flex justify-between items-center gap-4">
+                <div class="flex items-center gap-3">
+                    <div class="bg-indigo-600 p-2 rounded-xl text-white">
+                        <i data-lucide="settings" class="w-6 h-6"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-base font-extrabold tracking-tight">智學通老師控制台</h1>
+                        <p class="text-[10px] text-indigo-200">4 堂一期 RM 150 (每次點名扣除 1 堂課)</p>
+                    </div>
+                </div>
+                <button onclick="lockSystem()" class="px-3 py-1.5 bg-indigo-900 text-indigo-300 hover:text-white rounded-lg text-xs font-bold transition flex items-center gap-1">
+                    <i data-lucide="log-out" class="w-3.5 h-3.5"></i> 鎖定後台
+                </button>
+            </div>
+        </header>
+
+        <!-- 管理端副導航/狀態條 -->
+        <div class="bg-slate-100 border-b px-6 py-2.5 text-xs text-slate-500">
+            <div class="max-w-4xl mx-auto flex justify-between items-center">
+                <div class="flex items-center gap-2">
+                    <span class="inline-block w-2 h-2 rounded-full bg-amber-500" id="syncStatusIndicator"></span>
+                    <span id="syncStatusText" class="font-medium">本機安全存檔模式 (未連接 Google Sheets)</span>
+                </div>
+                <button onclick="switchTab('sync-setup')" class="text-indigo-600 hover:text-indigo-800 font-bold flex items-center gap-0.5">
+                    <i data-lucide="refresh-cw" class="w-3 h-3"></i> 設定同步
+                </button>
             </div>
         </div>
 
-        <div id="result" class="hidden bg-white p-6 rounded-3xl shadow-sm border border-slate-200 space-y-4">
-            <div class="flex justify-between items-end">
+        <!-- 管理端核心內容 -->
+        <main class="flex-grow max-w-4xl w-full mx-auto p-4 md:p-6 space-y-6">
+            
+            <!-- 手機端分頁按鈕 -->
+            <div class="flex gap-1 bg-slate-200/60 p-1 rounded-xl">
+                <button onclick="switchTab('dashboard')" id="btn-dashboard" class="tab-btn active flex-grow py-2 rounded-lg text-xs font-bold transition [&.active]:bg-white [&.active]:text-indigo-600 [&.active]:shadow-sm">總覽</button>
+                <button onclick="switchTab('students')" id="btn-students" class="tab-btn flex-grow py-2 rounded-lg text-xs font-bold transition [&.active]:bg-white [&.active]:text-indigo-600 [&.active]:shadow-sm">名單</button>
+                <button onclick="switchTab('scanner')" id="btn-scanner" class="tab-btn flex-grow py-2 rounded-lg text-xs font-bold transition [&.active]:bg-white [&.active]:text-indigo-600 [&.active]:shadow-sm">掃碼</button>
+                <button onclick="switchTab('qr-gen')" id="btn-qr-gen" class="tab-btn flex-grow py-2 rounded-lg text-xs font-bold transition [&.active]:bg-white [&.active]:text-indigo-600 [&.active]:shadow-sm">印卡</button>
+            </div>
+
+            <!-- Tab 1: 數據總覽與催繳 -->
+            <div id="tab-dashboard" class="tab-content active space-y-6">
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-white p-4 rounded-2xl border shadow-sm">
+                        <span class="text-[10px] font-semibold text-slate-400 block">總學員</span>
+                        <p class="text-2xl font-black text-indigo-950 mt-1" id="stats-total-students">0</p>
+                    </div>
+                    <div class="bg-white p-4 rounded-2xl border shadow-sm">
+                        <span class="text-[10px] font-semibold text-slate-400 block">已欠費 (≤ 0)</span>
+                        <p class="text-2xl font-black text-rose-600 mt-1" id="stats-need-pay">0 人</p>
+                    </div>
+                </div>
+
+                <!-- 催費工作台 (完全無家長詞彙，對象僅限學生) -->
+                <div class="border rounded-2xl p-5 bg-white space-y-4 shadow-sm">
+                    <div class="flex justify-between items-center border-b pb-3">
+                        <div>
+                            <h3 class="font-extrabold text-slate-800 text-sm flex items-center gap-1.5">
+                                <i data-lucide="bell" class="text-rose-500 w-4.5 h-4.5"></i>
+                                欠費學生催繳名單 (RM 150)
+                            </h3>
+                        </div>
+                        <button onclick="remindAllDebtors()" class="bg-rose-600 hover:bg-rose-700 text-white px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 transition shadow-sm">
+                            <i data-lucide="message-square-share" class="w-3.5 h-3.5"></i> 一鍵提醒所有人
+                        </button>
+                    </div>
+                    <div class="space-y-2 max-h-[220px] overflow-y-auto" id="unpaidAlertList"></div>
+                </div>
+            </div>
+
+            <!-- Tab 2: 學員名冊與管理 -->
+            <div id="tab-students" class="tab-content space-y-4">
+                <div class="flex justify-between items-center">
+                    <h3 class="font-bold text-sm">名冊管理</h3>
+                    <button onclick="openModal('addStudentModal')" class="bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1">
+                        <i data-lucide="user-plus" class="w-3.5 h-3.5"></i> 新增學員
+                    </button>
+                </div>
+                <div class="relative">
+                    <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
+                    <input type="text" id="studentSearch" oninput="renderStudentsTable()" placeholder="搜尋姓名或學號..." class="w-full pl-9 pr-4 py-2 border rounded-xl text-xs outline-none">
+                </div>
+                <div class="bg-white border rounded-2xl overflow-hidden shadow-sm">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs">
+                            <thead class="bg-slate-50 border-b text-slate-400 font-bold">
+                                <tr>
+                                    <th class="p-3">姓名/學號</th>
+                                    <th class="p-3">剩餘</th>
+                                    <th class="p-3">今日出席</th>
+                                    <th class="p-3">加/減</th>
+                                    <th class="p-3 text-right">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="studentsTableBody" class="divide-y divide-slate-100"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab 3: QR點名相機 -->
+            <div id="tab-scanner" class="tab-content space-y-4">
+                <div class="w-full max-w-sm mx-auto bg-black rounded-3xl overflow-hidden aspect-square relative border-4 border-slate-200">
+                    <div id="interactive-reader" class="w-full h-full bg-slate-950 flex items-center justify-center">
+                        <div class="text-slate-500 text-center p-6 space-y-2">
+                            <i data-lucide="camera" class="w-10 h-10 mx-auto animate-pulse"></i>
+                            <p class="text-xs">相機未啟動</p>
+                        </div>
+                    </div>
+                    <div class="absolute bottom-4 left-1/2 -translate-x-1/2 z-10">
+                        <button id="btn-start-camera" onclick="startQRScanner()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1 shadow-md">
+                            <i data-lucide="play" class="w-3.5 h-3.5"></i> 啟動相機
+                        </button>
+                        <button id="btn-stop-camera" onclick="stopQRScanner()" class="bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1 shadow-md hidden">
+                            <i data-lucide="square" class="w-3.5 h-3.5"></i> 關閉相機
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 點名即時結果 -->
+                <div class="bg-white p-4 rounded-2xl border shadow-sm space-y-3">
+                    <h4 class="text-xs font-bold text-slate-400 border-b pb-1">點名反饋</h4>
+                    <div id="scanResultCard" class="flex items-center gap-3 bg-slate-50 p-3 rounded-xl">
+                        <div class="bg-slate-200 p-2 rounded-full text-slate-500" id="scanResultIcon">
+                            <i data-lucide="scan" class="w-5 h-5"></i>
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-sm" id="scanResultName">等待刷碼中...</h4>
+                            <p class="text-[10px] text-slate-400 mt-0.5" id="scanResultTime">請對準 QR 點名卡</p>
+                        </div>
+                    </div>
+                    <div class="flex gap-2">
+                        <select id="simulatorStudentSelect" class="flex-grow px-3 py-2 border rounded-xl text-xs bg-slate-50 outline-none"></select>
+                        <button onclick="simulateScan()" class="bg-indigo-600 text-white px-4 py-2 rounded-xl text-xs font-bold">模擬刷卡</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab 4: 印點名卡 -->
+            <div id="tab-qr-gen" class="tab-content space-y-4">
+                <div class="flex justify-between items-center">
+                    <h3 class="font-bold text-xs">列印學員點名卡</h3>
+                    <button onclick="window.print()" class="bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 shadow-sm">
+                        <i data-lucide="printer" class="w-3.5 h-3.5"></i> 列印所有
+                    </button>
+                </div>
+                <div class="grid grid-cols-2 gap-4" id="qrCardGrid"></div>
+            </div>
+
+            <!-- Tab 5: 試算表同步設定 -->
+            <div id="tab-sync-setup" class="tab-content bg-white p-5 border rounded-2xl shadow-sm space-y-4">
+                <h3 class="font-bold text-sm">系統與同步設定</h3>
                 <div>
-                    <h2 id="name" class="text-2xl font-black">--</h2>
-                    <p id="id" class="text-xs text-slate-400 font-mono"></p>
+                    <label class="block text-xs text-slate-400 mb-1">更改解鎖密碼 (預設: 8888)</label>
+                    <div class="flex gap-2">
+                        <input type="password" id="newPinCode" placeholder="輸入新 4 位密碼" class="px-3 py-2 border rounded-xl text-xs outline-none focus:ring-1 focus:ring-indigo-500">
+                        <button onclick="changeAdminPin()" class="bg-slate-800 text-white px-4 py-2 rounded-xl text-xs font-bold">變更</button>
+                    </div>
                 </div>
-                <div class="text-right">
-                    <p class="text-[10px] font-bold text-slate-400 uppercase">剩餘堂數</p>
-                    <span id="balance" class="text-4xl font-black text-indigo-600">0</span>
+                <div class="bg-indigo-50/50 p-4 border border-indigo-100 rounded-xl space-y-2">
+                    <label class="block text-xs font-bold text-indigo-950">Google Apps Script 網址 (Web App URL)</label>
+                    <input type="text" id="googleAppScriptUrl" placeholder="https://script.google.com/macros/s/.../exec" class="w-full px-3 py-2 border rounded-xl text-xs outline-none">
+                    <button onclick="saveSyncSettings()" class="mt-2 bg-indigo-600 text-white px-4 py-2 rounded-xl text-xs font-bold">測試連線並同步</button>
                 </div>
             </div>
-            <div class="bg-slate-100 h-2 rounded-full overflow-hidden">
-                <div id="bar" class="bg-indigo-600 h-full transition-all duration-500" style="width: 0%"></div>
+        </main>
+        
+        <footer class="bg-slate-100 border-t py-4 text-center text-xs text-slate-400">
+            <p>管理端控制台安全模組 v3.5</p>
+        </footer>
+    </div>
+
+    <!-- 彈出：新增學員 -->
+    <div id="addStudentModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl max-w-sm w-full shadow-2xl overflow-hidden flex flex-col">
+            <div class="bg-indigo-600 text-white p-4 flex justify-between items-center">
+                <h3 class="font-bold text-sm flex items-center gap-1.5">
+                    <i data-lucide="user-plus" class="w-4 h-4"></i> 新增學員學籍
+                </h3>
+                <button onclick="closeModal('addStudentModal')" class="text-indigo-100"><i data-lucide="x" class="w-5 h-5"></i></button>
             </div>
-            <p id="tip" class="text-xs text-slate-500"></p>
+            <form onsubmit="handleSaveStudent(event)" class="p-5 space-y-3 text-xs">
+                <div>
+                    <label class="block text-slate-400 mb-1">學號 (ID)</label>
+                    <input type="text" id="mStudentId" placeholder="如：STU001" required class="w-full px-3 py-2 border rounded-xl outline-none">
+                </div>
+                <div>
+                    <label class="block text-slate-400 mb-1">學生姓名</label>
+                    <input type="text" id="mStudentName" placeholder="輸入姓名" required class="w-full px-3 py-2 border rounded-xl outline-none">
+                </div>
+                <div>
+                    <label class="block text-slate-400 mb-1">學生手機 (WhatsApp聯絡)</label>
+                    <input type="tel" id="mStudentPhone" placeholder="如：60123456789 (必須帶有國碼)" required class="w-full px-3 py-2 border rounded-xl outline-none">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-slate-400 mb-1">一期費用 (RM)</label>
+                        <input type="number" id="mStudentFee" value="150" required class="w-full px-3 py-2 border rounded-xl outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-slate-400 mb-1">初始餘額 (堂)</label>
+                        <input type="number" id="mStudentBalance" value="4" required class="w-full px-3 py-2 border rounded-xl outline-none">
+                    </div>
+                </div>
+                <div class="pt-2 flex gap-2">
+                    <button type="button" onclick="closeModal('addStudentModal')" class="flex-grow py-2.5 border rounded-xl">取消</button>
+                    <button type="submit" class="flex-grow py-2.5 bg-indigo-600 text-white rounded-xl font-bold">儲存</button>
+                </div>
+            </form>
         </div>
     </div>
 
+    <!-- Toast 提示 -->
+    <div id="toast" class="fixed bottom-6 right-6 bg-slate-950 text-white py-3 px-5 rounded-xl shadow-xl z-50 flex items-center gap-2 transition-transform translate-y-32 opacity-0 text-xs">
+        <i data-lucide="info" class="w-4 h-4 text-indigo-400"></i>
+        <span class="font-bold" id="toastMsg">通知</span>
+    </div>
+
     <script>
-        let students = JSON.parse(localStorage.getItem("students_class_db") || "[]");
-        function query() {
-            const id = document.getElementById("searchInput").value.trim().toUpperCase();
-            const st = students.find(s => s.id === id || s.phone === id);
-            if(!st) return alert("找不到學生資料");
+        let students = [];
+        let googleAppScriptUrl = '';
+        let html5QrcodeScanner = null;
+        let adminPin = '8888';
+        let clickCount = 0;
+
+        // 預設示範數據
+        const defaultStudents = [
+            { id: "STU001", name: "陳小明", phone: "60123456789", balance: 4, fee: 150, attendance: {} },
+            { id: "STU002", name: "林小華", phone: "60198765432", balance: 0, fee: 150, attendance: {} }
+        ];
+
+        document.addEventListener("DOMContentLoaded", () => {
+            lucide.createIcons();
             
-            document.getElementById("name").innerText = st.name;
-            document.getElementById("id").innerText = st.id;
-            document.getElementById("balance").innerText = st.balance;
-            document.getElementById("result").classList.remove("hidden");
+            // 讀取密碼與同步設定
+            const savedPin = localStorage.getItem("admin_system_pin");
+            if (savedPin) adminPin = savedPin;
+
+            const savedStudents = localStorage.getItem("students_class_db");
+            const savedUrl = localStorage.getItem("google_script_class_url");
+
+            if (savedStudents) {
+                students = JSON.parse(savedStudents);
+            } else {
+                students = defaultStudents;
+                localStorage.setItem("students_class_db", JSON.stringify(students));
+            }
+
+            if (savedUrl) {
+                googleAppScriptUrl = savedUrl;
+                document.getElementById('googleAppScriptUrl').value = googleAppScriptUrl;
+                testGoogleSheetsConnection();
+            }
+
+            // 首頁如果帶有自動查詢參數（來自點名卡二維碼）
+            const urlParams = new URLSearchParams(window.location.search);
+            const queryId = urlParams.get('id');
+            if (queryId) {
+                document.getElementById("searchInput").value = queryId;
+                setTimeout(queryStudentData, 500);
+            }
+
+            renderAll();
+        });
+
+        // --- 隱藏解鎖門（防作弊精髓） ---
+        function checkAdminClick() {
+            clickCount++;
+            if (clickCount >= 5) {
+                const pass = prompt("請輸入管理員驗證密碼：");
+                if (pass === adminPin) {
+                    document.getElementById("studentPortal").classList.add("hidden");
+                    document.getElementById("adminPortal").classList.remove("hidden");
+                    showToast("🔓 老師管理端控制台已解鎖！");
+                    renderAll();
+                } else if (pass !== null) {
+                    alert("密碼錯誤，拒絕登入。");
+                }
+                clickCount = 0;
+            }
+        }
+
+        function lockSystem() {
+            document.getElementById("adminPortal").classList.add("hidden");
+            document.getElementById("studentPortal").classList.remove("hidden");
+            if (html5QrcodeScanner) stopQRScanner();
+            clickCount = 0;
+        }
+
+        function changeAdminPin() {
+            const newPin = document.getElementById("newPinCode").value.trim();
+            if (newPin.length < 4) return showToast("❌ 密碼必須大於或等於 4 位！");
+            adminPin = newPin;
+            localStorage.setItem("admin_system_pin", newPin);
+            showToast(`✅ 管理解鎖密碼變更成功：${newPin}`);
+            document.getElementById("newPinCode").value = '';
+        }
+
+        // 格式化日期與餘額
+        function getTodayDateString() {
+            const d = new Date();
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        }
+        function formatBalance(val) {
+            return Number(val).toFixed(2).replace(/\.00$/, '').replace(/(\.\d)0$/, '$1');
+        }
+
+        // --- 學生自主查詢邏輯 ---
+        function queryStudentData() {
+            const searchVal = document.getElementById("searchInput").value.trim().toUpperCase();
+            if (!searchVal) return showToast("請輸入學號或手機號碼");
+
+            const st = students.find(s => s.id === searchVal || s.phone === searchVal);
+            const card = document.getElementById("resultCard");
+
+            if (!st) {
+                card.classList.add("hidden");
+                showToast("❌ 找不到該學生，請確認資料是否正確");
+                return;
+            }
+
+            document.getElementById("studentName").innerText = st.name;
+            document.getElementById("studentId").innerText = st.id;
             
-            const prog = ((st.balance % 4 || 4) / 4) * 100;
-            document.getElementById("bar").style.width = prog + "%";
-            document.getElementById("tip").innerText = st.balance <= 0 ? "⚠️ 學費已到期，請聯繫老師繳費。" : "餘額充足，祝學習愉快！";
+            const rawBal = Number(st.balance);
+            document.getElementById("studentBalance").innerText = formatBalance(rawBal);
+
+            // 計算 4 堂一期的進度條
+            let displayBalance = Math.max(0, rawBal);
+            let remainder = displayBalance % 4;
+            let sessionsUsed = 4 - (remainder === 0 && displayBalance > 0 ? 4 : remainder);
+            sessionsUsed = Math.round(sessionsUsed * 100) / 100;
+
+            const progressPercent = Math.min(100, Math.max(0, (sessionsUsed / 4) * 100));
+
+            document.getElementById("progressText").innerText = `本期已上 ${sessionsUsed} / 4 堂`;
+            document.getElementById("progressBar").style.width = `${progressPercent}%`;
+
+            const suggest = document.getElementById("suggestText");
+            if (rawBal >= 1.0) {
+                suggest.innerText = `目前賸餘學費還可以上 ${formatBalance(rawBal)} 堂課。`;
+            } else if (rawBal > 0 && rawBal < 1.0) {
+                suggest.innerText = `僅剩 ${formatBalance(rawBal)} 堂課，下週上課前請記得繳交學費 RM 150，謝謝配合！`;
+            } else {
+                suggest.innerText = `上課額度已到期！請儘快繳交新一期學費 RM 150 以開通點名權限。`;
+            }
+
+            // 渲染出席歷史
+            const histList = document.getElementById("attendanceHistoryList");
+            histList.innerHTML = "";
+            const dates = Object.keys(st.attendance || {}).sort().reverse();
+            if (dates.length === 0) {
+                histList.innerHTML = `<p class="p-4 text-center text-slate-400">尚無上課簽到記錄</p>`;
+            } else {
+                dates.forEach(date => {
+                    const item = document.createElement("div");
+                    item.className = "flex justify-between items-center p-3 hover:bg-slate-50";
+                    item.innerHTML = `
+                        <span class="font-bold text-slate-700 font-mono">${date}</span>
+                        <span class="bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded font-bold">自動扣除 1 堂</span>
+                    `;
+                    histList.appendChild(item);
+                });
+            }
+
+            card.classList.remove("hidden");
+            lucide.createIcons();
+            showToast("🔍 查詢成功！");
+        }
+
+        // --- 老師管理端邏輯與渲染 ---
+        function renderAll() {
+            calculateStats();
+            renderStudentsTable();
+            renderUnpaidAlertList();
+            renderSimulatorSelect();
+            renderQRCardGrid();
+            lucide.createIcons();
+        }
+
+        function calculateStats() {
+            const today = getTodayDateString();
+            let todayCheck = 0;
+            let needPay = 0;
+
+            students.forEach(st => {
+                if (st.attendance[today]) todayCheck++;
+                if (st.balance <= 0) needPay++;
+            });
+
+            document.getElementById("stats-total-students").innerText = students.length;
+            document.getElementById("stats-need-pay").innerText = needPay;
+        }
+
+        function renderStudentsTable() {
+            const today = getTodayDateString();
+            const search = document.getElementById("studentSearch").value.toLowerCase();
+            const tbody = document.getElementById("studentsTableBody");
+
+            tbody.innerHTML = "";
+
+            const filtered = students.filter(st => {
+                return st.name.toLowerCase().includes(search) || st.id.toLowerCase().includes(search);
+            });
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-slate-400">無相符資料</td></tr>`;
+                return;
+            }
+
+            filtered.forEach(st => {
+                const isAttended = st.attendance[today] ? true : false;
+                const row = document.createElement("tr");
+                row.className = "hover:bg-slate-50 transition text-xs";
+                row.innerHTML = `
+                    <td class="p-3">
+                        <span class="font-bold text-slate-800 block">${st.name}</span>
+                        <span class="text-[9px] text-slate-400 font-mono">${st.id}</span>
+                    </td>
+                    <td class="p-3 font-bold font-mono ${st.balance <= 0 ? 'text-rose-600' : 'text-indigo-600'}">${formatBalance(st.balance)} 堂</td>
+                    <td class="p-3">
+                        <button onclick="toggleAttendance('${st.id}')" class="px-2 py-1 rounded-full font-bold text-[10px] transition ${isAttended ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-400'}">
+                            ${isAttended ? '已簽到' : '未簽到'}
+                        </button>
+                    </td>
+                    <td class="p-3">
+                        <div class="flex items-center gap-1">
+                            <button onclick="adjustBalance('${st.id}', -1)" class="w-5 h-5 bg-slate-100 rounded text-xs font-bold hover:bg-rose-50">-1</button>
+                            <button onclick="adjustBalance('${st.id}', 1)" class="w-5 h-5 bg-slate-100 rounded text-xs font-bold hover:bg-indigo-50">+1</button>
+                            <button onclick="topUpFour('${st.id}')" class="px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded font-bold text-[9px] hover:bg-indigo-100">+4 (繳150)</button>
+                        </div>
+                    </td>
+                    <td class="p-3 text-right">
+                        <div class="flex justify-end gap-1">
+                            <button onclick="sendDirectReminder('${st.phone}', '${st.name}', ${st.balance})" class="p-1 text-emerald-500 hover:bg-emerald-50 rounded" title="WhatsApp 提醒">
+                                <i data-lucide="message-square" class="w-4 h-4"></i>
+                            </button>
+                            <button onclick="deleteStudent('${st.id}')" class="p-1 text-slate-300 hover:text-rose-600 rounded">
+                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+            lucide.createIcons();
+        }
+
+        function renderUnpaidAlertList() {
+            const list = document.getElementById("unpaidAlertList");
+            list.innerHTML = "";
+
+            const debtors = students.filter(st => st.balance <= 0);
+
+            if (debtors.length === 0) {
+                list.innerHTML = `<p class="p-4 text-center text-xs text-slate-400">目前沒有學員欠費，做得好！</p>`;
+                return;
+            }
+
+            debtors.forEach(st => {
+                const item = document.createElement("div");
+                item.className = "bg-white p-3 border rounded-xl flex justify-between items-center text-xs shadow-sm hover:bg-rose-50/50 transition";
+                item.innerHTML = `
+                    <div>
+                        <span class="font-bold text-slate-800">${st.name}</span>
+                        <p class="text-[10px] text-rose-500 mt-0.5">學費已到期（餘額：${formatBalance(st.balance)} 堂）</p>
+                    </div>
+                    <button onclick="sendDirectReminder('${st.phone}', '${st.name}', ${st.balance})" class="bg-rose-600 text-white font-bold px-3 py-1.5 rounded-lg text-[10px] flex items-center gap-1">
+                        <i data-lucide="phone" class="w-3 h-3"></i> 催費
+                    </button>
+                `;
+                list.appendChild(item);
+            });
+            lucide.createIcons();
+        }
+
+        // WhatsApp 單發 (對象為學生本人，絕無家長字詞)
+        function sendDirectReminder(phone, name, balance) {
+            const formattedBal = formatBalance(balance);
+            let msg = '';
+            
+            if (balance <= 0) {
+                msg = `你好 ${name}，提醒你本期學費已到期（目前學費餘額：${formattedBal} 堂）。新一期學費為 4 堂課共計 RM 150，請記得於近日完成繳費續期，謝謝配合！`;
+            } else {
+                msg = `你好 ${name}，提醒你本期課程僅剩餘 ${formattedBal} 堂。新一期學費為四堂 RM 150，你可以於近日先安排繳納，謝謝配合！`;
+            }
+
+            let formattedPhone = phone;
+            if (phone.startsWith("0")) {
+                formattedPhone = "60" + phone.substring(1);
+            }
+            window.open(`https://wa.me/${formattedPhone}?text=${encodeURIComponent(msg)}`, '_blank');
+        }
+
+        // 一鍵提醒所有欠款學生
+        function remindAllDebtors() {
+            const debtors = students.filter(st => st.balance <= 0);
+            if (debtors.length === 0) return showToast("目前沒有欠款學生！");
+            
+            showToast(`正在發送給 ${debtors.length} 位同學...`);
+            debtors.forEach((st, index) => {
+                setTimeout(() => {
+                    sendDirectReminder(st.phone, st.name, st.balance);
+                }, index * 1000); // 批次排隊開啟
+            });
+        }
+
+        // 調整餘額
+        function adjustBalance(studentId, change) {
+            const st = students.find(s => s.id === studentId);
+            if (st) {
+                st.balance += change;
+                saveAndSync();
+                showToast(`已調整 ${st.name} 的餘額為：${formatBalance(st.balance)} 堂`);
+            }
+        }
+
+        function topUpFour(studentId) {
+            const st = students.find(s => s.id === studentId);
+            if (st) {
+                st.balance += 4;
+                saveAndSync();
+                showToast(`繳費成功！已為 ${st.name} 加上 4 堂學費 (已收 RM 150)`);
+            }
+        }
+
+        function toggleAttendance(studentId) {
+            const today = getTodayDateString();
+            const st = students.find(s => s.id === studentId);
+            if (!st) return;
+
+            const isAttended = st.attendance[today] ? true : false;
+            if (isAttended) {
+                delete st.attendance[today];
+                st.balance += 1;
+                showToast(`已撤銷 ${st.name} 今日點名，餘額補回 1 堂`);
+            } else {
+                st.attendance[today] = "present";
+                st.balance -= 1;
+                showToast(`點名成功！${st.name} 已扣減 1 堂課`);
+                if (st.balance <= 0) speakText(`${st.name} 簽到成功，但學費已到期。`);
+            }
+            saveAndSync();
+        }
+
+        // --- 相機簽到點名控制 ---
+        function startQRScanner() {
+            speakText("考勤雷達啟動");
+            document.getElementById("btn-start-camera").classList.add("hidden");
+            document.getElementById("btn-stop-camera").classList.remove("hidden");
+
+            html5QrcodeScanner = new Html5Qrcode("interactive-reader");
+            const config = { fps: 15, qrbox: { width: 220, height: 220 } };
+
+            html5QrcodeScanner.start(
+                { facingMode: "environment" },
+                config,
+                onScanSuccess,
+                onScanFailure
+            ).catch(err => {
+                showToast("開啟鏡頭失敗，請允許相機權限");
+                stopQRScanner();
+            });
+        }
+
+        function stopQRScanner() {
+            document.getElementById("btn-start-camera").classList.remove("hidden");
+            document.getElementById("btn-stop-camera").classList.add("hidden");
+            document.getElementById("interactive-reader").innerHTML = `
+                <div class="text-slate-500 text-center p-6 space-y-2">
+                    <i data-lucide="camera" class="w-10 h-10 mx-auto animate-pulse"></i>
+                    <p class="text-xs">相機鏡頭已關閉</p>
+                </div>
+            `;
+            lucide.createIcons();
+            if (html5QrcodeScanner) {
+                html5QrcodeScanner.stop().then(() => { html5QrcodeScanner = null; }).catch(() => { html5QrcodeScanner = null; });
+            }
+        }
+
+        function onScanSuccess(decodedText) {
+            const studentId = decodedText.trim();
+            const today = getTodayDateString();
+            const st = students.find(s => s.id === studentId);
+
+            if (st) {
+                if (st.attendance[today]) {
+                    updateScanUI(st, "重複點名！", "warning");
+                    speakText(`${st.name} 今天已經簽到過囉`);
+                } else {
+                    st.attendance[today] = "present";
+                    st.balance -= 1;
+                    saveAndSync();
+                    updateScanUI(st, "點名成功扣除 1 堂", "success");
+                    speakText(`${st.name} 簽到成功`);
+                }
+            } else {
+                updateScanUI(null, `查無此學號 ${studentId}`, "error");
+                speakText("無效卡片");
+            }
+        }
+
+        function onScanFailure() {}
+
+        function simulateScan() {
+            const id = document.getElementById("simulatorStudentSelect").value;
+            if(!id) return showToast("請選擇學員！");
+            onScanSuccess(id);
+        }
+
+        function updateScanUI(student, msg, type) {
+            const nameEl = document.getElementById("scanResultName");
+            const timeEl = document.getElementById("scanResultTime");
+            const card = document.getElementById("scanResultCard");
+            const icon = document.getElementById("scanResultIcon");
+
+            if (type === "success") {
+                card.className = "flex items-center gap-3 bg-emerald-50 p-3 rounded-xl border-2 border-emerald-500";
+                icon.className = "bg-emerald-500 p-2 rounded-full text-white";
+                icon.innerHTML = '<i data-lucide="check" class="w-5 h-5"></i>';
+                nameEl.innerText = `${student.name} · ${msg}`;
+                timeEl.innerText = `剩餘可用：${formatBalance(student.balance)} 堂`;
+            } else if (type === "warning") {
+                card.className = "flex items-center gap-3 bg-amber-50 p-3 rounded-xl border-2 border-amber-500";
+                icon.className = "bg-amber-500 p-2 rounded-full text-white";
+                icon.innerHTML = '<i data-lucide="alert-triangle" class="w-5 h-5"></i>';
+                nameEl.innerText = `${student.name} · ${msg}`;
+                timeEl.innerText = `目前剩餘: ${formatBalance(student.balance)} 堂`;
+            } else {
+                card.className = "flex items-center gap-3 bg-rose-50 p-3 rounded-xl border-2 border-rose-500";
+                icon.className = "bg-rose-500 p-2 rounded-full text-white";
+                icon.innerHTML = '<i data-lucide="x" class="w-5 h-5"></i>';
+                nameEl.innerText = msg;
+                timeEl.innerText = "無法核對學號資訊。";
+            }
+            lucide.createIcons();
+        }
+
+        // --- 生成點名卡 ---
+        function renderQRCardGrid() {
+            const grid = document.getElementById("qrCardGrid");
+            grid.innerHTML = "";
+
+            students.forEach(st => {
+                const card = document.createElement("div");
+                card.className = "bg-white border rounded-3xl p-4 flex flex-col items-center justify-between shadow-sm gap-2 text-center";
+                card.innerHTML = `
+                    <div>
+                        <span class="text-[8px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full font-bold">點名卡</span>
+                        <h4 class="font-extrabold text-sm mt-1">${st.name}</h4>
+                        <p class="text-[9px] text-slate-400 font-mono">${st.id}</p>
+                    </div>
+                    <div id="qrcode-${st.id}" class="bg-slate-50 p-2 rounded-xl border"></div>
+                    <p class="text-[8px] text-slate-400">手機掃描快速進查詢端</p>
+                `;
+                grid.appendChild(card);
+
+                setTimeout(() => {
+                    new QRCode(document.getElementById(`qrcode-${st.id}`), {
+                        text: st.id,
+                        width: 90,
+                        height: 90,
+                        colorDark: "#0f172a",
+                        colorLight: "#f8fafc",
+                        correctLevel: QRCode.CorrectLevel.H
+                    });
+                }, 50);
+            });
+        }
+
+        function renderSimulatorSelect() {
+            const select = document.getElementById("simulatorStudentSelect");
+            select.innerHTML = '<option value="">-- 模擬選擇 --</option>';
+            students.forEach(st => {
+                const op = document.createElement("option");
+                op.value = st.id;
+                op.innerText = `${st.name} (${formatBalance(st.balance)}堂)`;
+                select.appendChild(op);
+            });
+        }
+
+        // --- 學籍與同步模組 ---
+        function handleSaveStudent(e) {
+            e.preventDefault();
+            const id = document.getElementById("mStudentId").value.trim().toUpperCase();
+            const name = document.getElementById("mStudentName").value.trim();
+            const phone = document.getElementById("mStudentPhone").value.trim();
+            const fee = Number(document.getElementById("mStudentFee").value);
+            const balance = Number(document.getElementById("mStudentBalance").value);
+
+            if (students.some(s => s.id === id)) return showToast("❌ 該學員學號已存在！");
+
+            students.push({ id, name, phone, fee, balance, attendance: {} });
+            saveAndSync();
+            closeModal("addStudentModal");
+            showToast(`登記成功：${name}`);
+            e.target.reset();
+        }
+
+        function deleteStudent(id) {
+            if (confirm("確定要刪除此學員資料與點名歷史嗎？")) {
+                students = students.filter(s => s.id !== id);
+                saveAndSync();
+                showToast("學員學籍已註銷");
+            }
+        }
+
+        function saveSyncSettings() {
+            const url = document.getElementById("googleAppScriptUrl").value.trim();
+            googleAppScriptUrl = url;
+            localStorage.setItem("google_script_class_url", url);
+            testGoogleSheetsConnection();
+        }
+
+        function testGoogleSheetsConnection() {
+            const ind = document.getElementById("syncStatusIndicator");
+            const txt = document.getElementById("syncStatusText");
+            txt.innerText = "正在向大腦進行連線...";
+            ind.className = "inline-block w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse";
+
+            fetch(googleAppScriptUrl)
+                .then(r => r.json())
+                .then(data => {
+                    if (data && Array.isArray(data)) {
+                        students = data;
+                        localStorage.setItem("students_class_db", JSON.stringify(students));
+                        updateSyncUI(true);
+                        renderAll();
+                        showToast("✅ 同步連接成功，數據已最新！");
+                    } else { throw new Error(); }
+                })
+                .catch(() => {
+                    updateSyncUI(false);
+                    showToast("❌ 同步失敗，請確認 Apps Script 部署與設置是否為 Anyone");
+                });
+        }
+
+        function updateSyncUI(connected) {
+            const ind = document.getElementById("syncStatusIndicator");
+            const txt = document.getElementById("syncStatusText");
+            if (connected) {
+                ind.className = "inline-block w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse";
+                txt.innerText = "Google Sheets 同步正常";
+            } else {
+                ind.className = "inline-block w-2.5 h-2.5 rounded-full bg-rose-500";
+                txt.innerText = "本機操作模式 (未連接試算表)";
+            }
+        }
+
+        function saveAndSync() {
+            localStorage.setItem("students_class_db", JSON.stringify(students));
+            renderAll();
+            if (googleAppScriptUrl) {
+                fetch(googleAppScriptUrl, {
+                    method: "POST",
+                    mode: "no-cors",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ action: "syncAll", students })
+                }).then(() => { updateSyncUI(true); }).catch(() => { updateSyncUI(false); });
+            }
+        }
+
+        function switchTab(id) {
+            document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+            const activeBtn = document.getElementById(`btn-${id}`);
+            if (activeBtn) activeBtn.classList.add("active");
+
+            document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
+            document.getElementById(`tab-${id}`).classList.add("active");
+
+            if (id !== 'scanner' && html5QrcodeScanner) stopQRScanner();
+        }
+
+        function openModal(id) { document.getElementById(id).classList.remove("hidden"); }
+        function closeModal(id) { document.getElementById(id).classList.add("hidden"); }
+
+        function speakText(text) {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+                const u = new SpeechSynthesisUtterance(text);
+                u.lang = 'zh-TW';
+                u.rate = 1.1;
+                window.speechSynthesis.speak(u);
+            }
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById("toast");
+            document.getElementById("toastMsg").innerText = msg;
+            toast.classList.remove("translate-y-32", "opacity-0");
+            setTimeout(() => { toast.classList.add("translate-y-32", "opacity-0"); }, 3000);
         }
     </script>
 </body>

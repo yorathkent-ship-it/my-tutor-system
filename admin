@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智學通管理控制台</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+</head>
+<body class="bg-slate-100 min-h-screen p-4">
+    <div id="lock" class="fixed inset-0 bg-slate-900 z-50 flex items-center justify-center">
+        <div class="bg-white p-8 rounded-3xl text-center space-y-4">
+            <h2 class="text-xl font-bold">老師身分驗證</h2>
+            <input type="password" id="pin" placeholder="輸入密碼" class="border p-3 rounded-xl text-center">
+            <button onclick="unlock()" class="w-full bg-indigo-600 text-white py-3 rounded-xl">登入系統</button>
+        </div>
+    </div>
+
+    <main class="max-w-4xl mx-auto space-y-6">
+        <div class="flex justify-between items-center bg-white p-6 rounded-3xl shadow-sm">
+            <h1 class="text-xl font-black text-indigo-900 italic">智學通 ADMIN</h1>
+            <button onclick="remindAll()" class="bg-rose-500 text-white px-4 py-2 rounded-xl text-xs font-bold">一鍵催繳所有欠費學生</button>
+        </div>
+
+        <div class="bg-white p-6 rounded-3xl shadow-sm overflow-hidden">
+            <table class="w-full text-left">
+                <thead class="text-xs text-slate-400 uppercase">
+                    <tr><th class="pb-4">學生</th><th class="pb-4">餘額</th><th class="pb-4">操作</th></tr>
+                </thead>
+                <tbody id="list" class="text-sm"></tbody>
+            </table>
+        </div>
+    </main>
+
+    <script>
+        let students = JSON.parse(localStorage.getItem("students_class_db") || "[]");
+        function unlock() {
+            if(document.getElementById("pin").value === "8888") {
+                document.getElementById("lock").classList.add("hidden");
+                render();
+            } else { alert("密碼錯誤"); }
+        }
+
+        function render() {
+            const tbody = document.getElementById("list");
+            tbody.innerHTML = students.map(st => `
+                <tr class="border-t border-slate-50">
+                    <td class="py-4 font-bold">${st.name}</td>
+                    <td class="py-4">${st.balance} 堂</td>
+                    <td class="py-4 flex gap-2">
+                        <button onclick="deduct('${st.id}')" class="bg-slate-200 px-3 py-1 rounded-lg">扣 1 堂</button>
+                        <button onclick="wa('${st.phone}', '${st.name}')" class="bg-emerald-500 text-white px-3 py-1 rounded-lg">WhatsApp</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function deduct(id) {
+            const st = students.find(s => s.id === id);
+            st.balance -= 1;
+            localStorage.setItem("students_class_db", JSON.stringify(students));
+            render();
+            // 此處應呼叫 Google Script 同步至 Excel
+        }
+
+        function wa(phone, name) {
+            const msg = `你好 ${name}，提醒你本期學費已用完，請記得繳交新一期 RM 150，謝謝！`;
+            window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`);
+        }
+
+        function remindAll() {
+            students.filter(s => s.balance <= 0).forEach(s => wa(s.phone, s.name));
+        }
+    </script>
+</body>
+</html>
